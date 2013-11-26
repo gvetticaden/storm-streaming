@@ -13,11 +13,17 @@ import com.hortonworks.streaming.impl.bolts.TruckEventRuleBolt;
 import com.hortonworks.streaming.spouts.JsonTupleProducer;
 import com.hortonworks.streaming.spouts.SpringJmsProvider;
 
-public class TruckEventProcessorTopology {
+public class TruckEventProcessorTopology extends BaseTruckEventTopology{
 	public static final String JMS_QUEUE_SPOUT = "sensor_data_spout";
 	public static final String TRUCK_EVENT_RULE_BOLT = "truck_event_rule_bolt";
 
-	public static void main(String[] args) throws Exception {
+	
+	public  TruckEventProcessorTopology(String configFileLocation) throws Exception{
+		super(configFileLocation);
+	}
+	
+	
+	private void buildAndSubmit() throws Exception {
 		JmsProvider jmsQueueProvider = new SpringJmsProvider(
 				"jms-activemq.xml", "jmsConnectionFactory", "notificationQueue");
 		// JMS Producer
@@ -33,14 +39,22 @@ public class TruckEventProcessorTopology {
 
 		// spout with 5 parallel instances
 		builder.setSpout(JMS_QUEUE_SPOUT, queueSpout, 5);
-		builder.setBolt(TRUCK_EVENT_RULE_BOLT, new TruckEventRuleBolt())
+		builder.setBolt(TRUCK_EVENT_RULE_BOLT, new TruckEventRuleBolt(this.topologyConfig))
 				.shuffleGrouping(JMS_QUEUE_SPOUT);
 
 		Config conf = new Config();
-		conf.setDebug(true);
+		conf.setDebug(false);
 
 		LocalCluster cluster = new LocalCluster();
 		cluster.submitTopology("truck-event-processor", conf,
-				builder.createTopology());
+				builder.createTopology());		
+		
 	}
+	
+	public static void main(String[] args) throws Exception {
+		String configFileLocation = args[0];
+		TruckEventProcessorTopology topology = new TruckEventProcessorTopology(configFileLocation);
+		topology.buildAndSubmit();
+	}
+	
 }

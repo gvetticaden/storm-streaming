@@ -1,5 +1,6 @@
 package com.hortonworks.streaming.impl.utils;
 
+import java.io.Serializable;
 import java.util.Properties;
 
 import javax.mail.Message;
@@ -9,16 +10,16 @@ import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
-public class EventMailer {
-	private static Properties props;
+public class EventMailer implements Serializable{
 
-	static {
-		props = new Properties();
-		props.put("mail.smtp.host", "sandbox");
-		props.put("mail.smtp.port", "25");
+	private static final long serialVersionUID = -1336390721063108193L;
+	private Properties props;
+
+	public EventMailer(Properties config) {
+		this.props = config;
 	}
-
-	public static void sendEmail(String sender, String recipient,
+	
+	public  void sendEmail(String sender, String recipient,
 			String subject, String body) {
 
 		Session session = Session.getInstance(props);
