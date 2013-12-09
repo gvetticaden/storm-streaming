@@ -18,6 +18,8 @@ import com.hortonworks.streaming.impl.TruckEventRuleEngine;
 
 public class TruckEventRuleBolt implements IRichBolt {
 	
+
+	private static final long serialVersionUID = 6816706717943954742L;
 	private static final Logger LOG = Logger.getLogger(TruckEventRuleBolt.class);
 	
 	private OutputCollector collector;
@@ -41,14 +43,17 @@ public class TruckEventRuleBolt implements IRichBolt {
 		String eventType = input.getStringByField("eventType");
 		double longitude = input.getDoubleByField("longitude");
 		double latitude = input.getDoubleByField("latitude");
+		long correlationId = input.getLongByField("correlationId");
 		
-		LOG.info("Processing truck event["+eventType +"]  for driverId["+ driverId +"], truck[" + truckId +"]");
-		ruleEngine.processEvent(driverId, truckId, eventTime, eventType, longitude, latitude);
+		
+		LOG.info("Processing truck event["+eventType +"]  for driverId["+ driverId +"], truck[" + truckId +"], correlationId["+correlationId + "]");
+		ruleEngine.processEvent(driverId, truckId, eventTime, eventType, longitude, latitude, correlationId);
 		collector.ack(input);
 	}
 
 	@Override
 	public void cleanup() {
+		ruleEngine.cleanUpResources();
 	}
 
 	@Override

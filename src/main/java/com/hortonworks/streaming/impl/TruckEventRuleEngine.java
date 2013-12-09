@@ -2,12 +2,25 @@ package com.hortonworks.streaming.impl;
 
 import java.io.Serializable;
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Properties;
 
+import javax.jms.Connection;
+import javax.jms.DeliveryMode;
+import javax.jms.JMSException;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+import javax.jms.Topic;
+
+import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.log4j.Logger;
+import org.codehaus.jackson.map.ObjectMapper;
+
+import poc.hortonworks.domain.transport.DriverAlertNotification;
 
 
 import com.hortonworks.streaming.impl.utils.EventMailer;
@@ -19,26 +32,50 @@ public class TruckEventRuleEngine implements Serializable {
 	public static final int MAX_UNSAFE_EVENTS = 5;
 	
 	public Map<Integer, LinkedList<String>> driverEvents = new HashMap<Integer, LinkedList<String>>();
+	private long lastCorrelationId;
+	
 	private String email ;
 	private String subject;
 	private EventMailer eventMailer;
+	private boolean sendAlertToEmail;
+	private boolean sendAlertToTopic;
+	
+	private String user;
+	private String password;
+	private String activeMQConnectionString;
+	private String topicName;	
+	
+
 
 
 	public TruckEventRuleEngine(Properties config) {
 		
-		this.eventMailer = new EventMailer(config);
+		this.sendAlertToEmail = Boolean.valueOf(config.getProperty("notification.email")).booleanValue();
+		if(sendAlertToEmail) {
+			LOG.info("TruckEventRuleEngine configured to send email on alert");
+			configureEmail(config);		
+		} else {
+			LOG.info("TruckEventRuleEngine configured to NOT send alerts");
+		}
 		
-		LOG.info("constructing new TruckEventRuleEngine");
-		
-		this.email = config.getProperty("notification.email");
-		this.subject =  config.getProperty("notification.subject");
-		
-		LOG.info("Initializing rule engine with email: " + email
-				+ " subject: " + subject);		
+		this.sendAlertToTopic = Boolean.valueOf(config.getProperty("notification.topic")).booleanValue();
+		if(sendAlertToTopic) {
+			this.user = config.getProperty("notification.topic.user");
+			this.password = config.getProperty("notification.topic.password");
+			this.activeMQConnectionString = config.getProperty("notification.topic.connection.url");
+			this.topicName = config.getProperty("notification.topic.alerts.name");	
+		} else {
+			LOG.info("TruckEventRuleEngine configured to alerts to Topic");
+		}
 	}
 
-	public void processEvent(int driverId, int truckId, Timestamp eventTime, String event, double longitude, double latitude) {
 
+	public void processEvent(int driverId, int truckId, Timestamp eventTime, String event, double longitude, double latitude, long currentCorrelationId) {
+
+		if(lastCorrelationId != currentCorrelationId) {
+			lastCorrelationId = currentCorrelationId;
+			driverEvents.clear();
+		}
 		if (!driverEvents.containsKey(driverId))
 			driverEvents.put(driverId, new LinkedList<String>());
 			
@@ -58,9 +95,12 @@ public class TruckEventRuleEngine implements Serializable {
 					for (String unsafeEvent : driverEvents.get(driverId)) {
 						events.append(unsafeEvent + "\n");
 					}
-					eventMailer.sendEmail(email, email, subject,
-							"We've identified 5 unsafe driving events for driver: "
-									+ driverId + "\n\n" + events.toString());
+					
+					if(sendAlertToEmail)
+						sendAlertEmail(driverId, events);
+					
+					if(sendAlertToTopic)
+						sendAlertToTopic(driverId, events, truckId, eventTime.getTime());
 				} catch (Exception e) {
 					LOG.error("Error occured while sending notificaiton email: "
 							+ e.getMessage());
@@ -69,5 +109,95 @@ public class TruckEventRuleEngine implements Serializable {
 				}
 			}
 		}
+	}
+	
+	private void configureEmail(Properties config) {
+		this.eventMailer = new EventMailer(config);			
+		this.email = config.getProperty("notification.email.address");
+		this.subject =  config.getProperty("notification.email.subject");
+		LOG.info("Initializing rule engine with email: " + email
+				+ " subject: " + subject);
+	}
+
+	private void sendAlertToTopic(int driverId, StringBuffer events, int truckId, long timeStamp) {
+		String truckDriverEventKey = driverId + "|" + truckId;
+		SimpleDateFormat sdf = new SimpleDateFormat();
+		String timeStampString = sdf.format(timeStamp);
+		
+		String alertMessage = "5 unsafe driving events have been identified for driver["+ driverId + "]: " 
+								+ events.toString();
+		
+		DriverAlertNotification alert = new DriverAlertNotification(truckDriverEventKey, driverId, truckId, 
+											timeStamp, timeStampString, alertMessage);
+
+		String jsonAlert;
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+			jsonAlert = mapper.writeValueAsString(alert);
+		} catch (Exception e) {
+			LOG.error("Error converting DriverAlertNotification to JSON", e);
+			return;
+		}
+		
+		sendAlert(jsonAlert);
+		
+	}
+	
+	private void sendAlert(String event) {
+		Session session = null;
+		try {
+			session = createSession();
+			TextMessage message = session.createTextMessage(event);
+			getTopicProducer(session).send(message);
+		} catch (JMSException e) {
+			LOG.error("Error sending TruckDriverViolationEvent to topic", e);
+			return;
+		}finally{
+			if(session != null) {
+				try {
+					session.close();
+				} catch (JMSException e) {
+					LOG.error("Error cleaning up ActiveMQ resources", e);
+				}				
+			}
+
+		}
+	}	
+
+	private void sendAlertEmail(int driverId, StringBuffer events) {
+		eventMailer.sendEmail(email, email, subject,
+				"We've identified 5 unsafe driving events for driver: "
+						+ driverId + "\n\n" + events.toString());
+	}
+	
+	
+	private MessageProducer getTopicProducer(Session session) {
+		try {
+			Topic topicDestination = session.createTopic(topicName);
+			MessageProducer topicProducer = session.createProducer(topicDestination);
+			topicProducer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+			return topicProducer;
+		} catch (JMSException e) {
+			LOG.error("Error creating producer for topic", e);
+			throw new RuntimeException("Error creating producer for topic");
+		}
+	}	
+	
+	private Session createSession() {
+		
+		try {
+			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(user, password,activeMQConnectionString);
+			Connection connection = connectionFactory.createConnection();
+			connection.start();
+			Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+			return session;
+		} catch (JMSException e) {
+			LOG.error("Error configuring ActiveMQConnection and getting session", e);
+			throw new RuntimeException("Error configuring ActiveMQConnection");
+		}
+	}	
+	
+	public void cleanUpResources() {
+
 	}
 }

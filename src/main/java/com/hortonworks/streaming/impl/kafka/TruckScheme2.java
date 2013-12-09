@@ -27,11 +27,12 @@ public class TruckScheme2 implements Scheme{
 			int driverId = Integer.valueOf(pieces[2]);
 			String eventType = pieces[3];
 			double longitude = Double.valueOf(pieces[4]);
-			double latitude = Double.valueOf(pieces[5]);			
+			double latitude = Double.valueOf(pieces[5]);	
+			long correlationId = Long.valueOf(pieces[6]);
 			String eventKey = consructKey(driverId, truckId, eventTime);
 			
-			LOG.info("Creating a Truck Scheme with driverId["+driverId + "] and truckEvent["+truckEvent + "]");
-			return new Values(driverId, truckId, eventTime, truckEvent, longitude, latitude, eventKey);
+			LOG.info("Creating a Truck Scheme with driverId["+driverId + "] and truckEvent["+truckEvent + "], and correlationId["+correlationId +"]");
+			return new Values(driverId, truckId, eventTime, eventType, longitude, latitude, eventKey, correlationId);
 			
 		} catch (UnsupportedEncodingException e) {
 			throw new RuntimeException(e);
@@ -41,7 +42,7 @@ public class TruckScheme2 implements Scheme{
 
 	@Override
 	public Fields getOutputFields() {
-		return new Fields("driverId", "truckId", "eventTime", "eventType", "longitude", "latitude", "eventKey");
+		return new Fields("driverId", "truckId", "eventTime", "eventType", "longitude", "latitude", "eventKey", "correlationId");
 		
 	}
 	

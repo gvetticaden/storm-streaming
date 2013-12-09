@@ -1,6 +1,5 @@
 package com.hortonworks.streaming.impl.bolts;
 
-import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Map;
 import java.util.Properties;
@@ -19,22 +18,30 @@ import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.IRichBolt;
 import backtype.storm.topology.OutputFieldsDeclarer;
+import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
+import backtype.storm.tuple.Values;
 
-public class SimpleHBaseBoltV2 implements IRichBolt {
+public class TruckHBaseBolt implements IRichBolt {
 
 
+	private static final byte[] INCIDENT_RUNNING_TOTAL_COLUMN = Bytes.toBytes("incidentRunningTotal");
 	private static final long serialVersionUID = 2946379346389650318L;
-	private static final Logger LOG = Logger.getLogger(SimpleHBaseBoltV2.class);
+	private static final Logger LOG = Logger.getLogger(TruckHBaseBolt.class);
 	
-	private static final  String TABLE_NAME = "truck_driver_danagerous_events";
-	private static final String COLUMN_FAMILY_NAME = "events";	
+	private static final  String EVENTS_TABLE_NAME = "driver_dangerous_events";
+	private static final String EVENTS_TABLE_COLUMN_FAMILY_NAME = "events";	
+	
+	private static final  String EVENTS_COUNT_TABLE_NAME = "driver_dangerous_events_count";
+	private static final String EVENTS_COUNT_TABLE_COLUMN_FAMILY_NAME = "counters";	
+
 	
 	private OutputCollector collector;
 	private HConnection connection;
-	private HTableInterface table;
+	private HTableInterface eventsTable;
+	private HTableInterface eventsCountTable;
 
-	public SimpleHBaseBoltV2(Properties kafkaConfig) {
+	public TruckHBaseBolt(Properties kafkaConfig) {
 	}
 
 	@Override
@@ -44,11 +51,10 @@ public class SimpleHBaseBoltV2 implements IRichBolt {
 		this.collector = collector;
 		try {
 			this.connection = HConnectionManager.createConnection(constructConfiguration());
-			this.table = connection.getTable(TABLE_NAME);
-			// Enable client-side write buffer
-		    //this.table.setAutoFlush(false, true);			    
+			this.eventsTable = connection.getTable(EVENTS_TABLE_NAME);
+			this.eventsCountTable = connection.getTable(EVENTS_COUNT_TABLE_NAME);		    
 		} catch (Exception e) {
-			String errMsg = "Error retrievinging connection and access to table";
+			String errMsg = "Error retrievinging connection and access to eventsTable";
 			LOG.error(errMsg, e);
 			throw new RuntimeException(errMsg, e);
 		}		
@@ -66,18 +72,33 @@ public class SimpleHBaseBoltV2 implements IRichBolt {
 		double longitude = input.getDoubleByField("longitude");
 		double latitude = input.getDoubleByField("latitude");
 		
-		try {
-			Put put = constructRow(driverId, truckId, eventTime, eventType,
-					latitude, longitude);
-			this.table.put(put);
-			LOG.info("Success inserting tupele into HBase...");
-			
-		} catch (Exception e) {
-			LOG.error("	Error inserting truck event into HBase", e);
-		}		
+		if(!eventType.equals("Normal")) {
+			try {
+				
+				//Store the incident event in HBase
+				Put put = constructRow(driverId, truckId, eventTime, eventType,
+						latitude, longitude);
+				this.eventsTable.put(put);
+				LOG.info("Success inserting event into HBase...");
+				
+				//Update the running count of all incidents
+				long incidentTotalCount = this.eventsCountTable.incrementColumnValue(Bytes.toBytes(driverId), Bytes.toBytes(EVENTS_COUNT_TABLE_COLUMN_FAMILY_NAME), 
+															INCIDENT_RUNNING_TOTAL_COLUMN, 1L);
+				LOG.info("Success inserting event into counts table....");
+				
+				collector.emit(input, new Values(driverId, truckId, eventTime, eventType, longitude, latitude, incidentTotalCount));
+				
+			} catch (Exception e) {
+				LOG.error("	Error inserting truck event into HBase", e);
+			}				
+		}
+	
 		//acknowledge even if there is an error
 		collector.ack(input);
+		
+		
 	}
+	
 	
 	
 	/**
@@ -102,23 +123,23 @@ public class SimpleHBaseBoltV2 implements IRichBolt {
 		Put put = new Put(Bytes.toBytes(rowKey));
 		
 		String driverColumn = "driverId";
-		put.add(Bytes.toBytes(COLUMN_FAMILY_NAME), Bytes.toBytes(driverColumn), Bytes.toBytes(driverId));
+		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(driverColumn), Bytes.toBytes(driverId));
 		
 		String truckColumn = "truckId";
-		put.add(Bytes.toBytes(COLUMN_FAMILY_NAME), Bytes.toBytes(truckColumn), Bytes.toBytes(truckId));
+		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(truckColumn), Bytes.toBytes(truckId));
 		
-		String eventTimeColumn = "eventTimeColumn";
-		long reverseTime = Long.MAX_VALUE - eventTime.getTime();
-		put.add(Bytes.toBytes(COLUMN_FAMILY_NAME), Bytes.toBytes(eventTimeColumn), Bytes.toBytes(reverseTime));
+		String eventTimeColumn = "eventTime";
+		long eventTimeValue=  eventTime.getTime();
+		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(eventTimeColumn), Bytes.toBytes(eventTimeValue));
 		
 		String eventTypeColumn = "eventType";
-		put.add(Bytes.toBytes(COLUMN_FAMILY_NAME), Bytes.toBytes(eventTypeColumn), Bytes.toBytes(eventType));
+		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(eventTypeColumn), Bytes.toBytes(eventType));
 		
 		String latColumn = "latitudeColumn";
-		put.add(Bytes.toBytes(COLUMN_FAMILY_NAME), Bytes.toBytes(latColumn), Bytes.toBytes(latitude));
+		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(latColumn), Bytes.toBytes(latitude));
 		
 		String longColumn = "longitudeColumn";
-		put.add(Bytes.toBytes(COLUMN_FAMILY_NAME), Bytes.toBytes(longColumn), Bytes.toBytes(longitude));
+		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(longColumn), Bytes.toBytes(longitude));
 
 		return put;
 	}
@@ -134,15 +155,17 @@ public class SimpleHBaseBoltV2 implements IRichBolt {
 	@Override
 	public void cleanup() {
 		try {
-			table.close();
+			eventsTable.close();
+			eventsCountTable.close();
 			connection.close();
 		} catch (Exception  e) {
-			LOG.error("Error closing table or connection", e);
+			LOG.error("Error closing eventsTable or connection", e);
 		}
 	}
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
+		declarer.declare(new Fields("driverId", "truckId", "eventTime", "eventType", "longitude", "latitude", "incidentTotalCount"));
 	}
 
 	@Override

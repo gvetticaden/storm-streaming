@@ -1,36 +1,26 @@
 package com.hortonworks.streaming.impl.topologies;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.Properties;
-
 import org.apache.log4j.Logger;
-
-import com.hortonworks.streaming.impl.bolts.SimpleHBaseBoltV2;
-import com.hortonworks.streaming.impl.bolts.TruckEventRuleBolt;
-import com.hortonworks.streaming.impl.kafka.TruckScheme2;
 
 import storm.kafka.BrokerHosts;
 import storm.kafka.KafkaSpout;
 import storm.kafka.SpoutConfig;
-import storm.kafka.StringScheme;
 import storm.kafka.ZkHosts;
 import backtype.storm.Config;
-import backtype.storm.LocalCluster;
 import backtype.storm.StormSubmitter;
-import backtype.storm.contrib.hbase.bolts.HBaseBolt;
-import backtype.storm.contrib.hbase.utils.TupleTableConfig;
 import backtype.storm.spout.SchemeAsMultiScheme;
-import backtype.storm.topology.IRichSpout;
 import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.tuple.Fields;
+
+import com.hortonworks.streaming.impl.bolts.TruckHBaseBolt;
+import com.hortonworks.streaming.impl.bolts.TruckEventRuleBolt;
+import com.hortonworks.streaming.impl.bolts.WebSocketBolt;
+import com.hortonworks.streaming.impl.kafka.TruckScheme2;
 
 public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 	
 	private static final Logger LOG = Logger.getLogger(TruckEventProcessorKafkaTopology.class);
-	private static final  String TABLE_NAME = "truck_driver_danagerous_events";
-	private static final String COLUMN_FAMILY_NAME = "events";	
+	
 	
 	public TruckEventProcessorKafkaTopology(String configFileLocation) throws Exception {
 		
@@ -50,14 +40,19 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 		/*
 		 * Send truckEvents from same driver to the same bolt instances to maintain accuracy of eventCount per truck/driver
 		 */
-		builder.setBolt("truck_event_rule_bolt", 
+		builder.setBolt("monitoring_bolt", 
 						new TruckEventRuleBolt(topologyConfig), boltCount)
 						.fieldsGrouping("kafkaSpout", new Fields("driverId"));
 		
-		SimpleHBaseBoltV2 hbaseBolt = new SimpleHBaseBoltV2(topologyConfig);
-		//HBaseBolt hbaseBolt = new HBaseBolt(constructHBaseTupleConfig());
+		TruckHBaseBolt hbaseBolt = new TruckHBaseBolt(topologyConfig);
 		
-		builder.setBolt("hbaseBolt", hbaseBolt, 2 ).shuffleGrouping("kafkaSpout");
+		builder.setBolt("hbase_bolt", hbaseBolt, 2 ).shuffleGrouping("kafkaSpout");
+		
+		boolean configureWebSocketBolt = Boolean.valueOf(topologyConfig.getProperty("notification.topic")).booleanValue();
+		if(configureWebSocketBolt) {
+			WebSocketBolt webSocketBolt = new WebSocketBolt(topologyConfig);
+			builder.setBolt("web_sockets_bolt", webSocketBolt, 4).shuffleGrouping("hbase_bolt");
+		}
 		
 		
 		/** This conf is for Storm and it needs be configured with things like the following:
@@ -79,16 +74,7 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 			
 	}
 
-	private TupleTableConfig constructHBaseTupleConfig() {
-		TupleTableConfig config = new TupleTableConfig(TABLE_NAME, "eventKey");
-		config.addColumn(COLUMN_FAMILY_NAME, "driverId");
-		config.addColumn(COLUMN_FAMILY_NAME, "truckId");
-		config.addColumn(COLUMN_FAMILY_NAME, "eventTime");
-		config.addColumn(COLUMN_FAMILY_NAME, "eventType");
-		config.addColumn(COLUMN_FAMILY_NAME, "longitude");
-		config.addColumn(COLUMN_FAMILY_NAME, "latitude");
-		return config;
-	}
+
 
 	/**
 	 * Construct the KafkaSpout which comes from the jar storm-kafka-0.8-plus
