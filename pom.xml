@@ -11,9 +11,15 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<spring.version>2.5.6</spring.version>
-		<storm.version>0.9.0-wip21 </storm.version>
+		<hadoop.version>2.4.0.2.1.1.0-385</hadoop.version>
+		<storm.version>0.9.1.2.1.1.0-385</storm.version>
+		<storm.kafka.version>0.9.1.2.1.1.0-385</storm.kafka.version>
+		<hbase.version>0.98.0.2.1.1.0-385-hadoop2</hbase.version>
+		<active.mq.version>5.7.0</active.mq.version>
+		<truck.topology.domain.version>1.0.0-SNAPSHOT</truck.topology.domain.version>
 		<junit.version>4.5</junit.version>
-		<hbase.version>0.96.0.2.0.6.0-76-hadoop2</hbase.version>
+		<mail.version>1.4.3</mail.version>
+		<log4j.version>1.2.17</log4j.version>
 	</properties>
 	
 	<repositories>
@@ -32,68 +38,18 @@
 	</repositories>
 
 	<dependencies>
-		<dependency>
-			<groupId>javax.mail</groupId>
-			<artifactId>mailapi</artifactId>
-			<version>1.4.3</version>
-		</dependency>
-		<dependency>
-			<groupId>javax.mail</groupId>
-			<artifactId>mail</artifactId>
-			<version>1.4.3</version>
-		</dependency>
+
 		
-		<!-- Storm JMS -->
+		<!-- Topology Domain Objects -->
 		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-beans</artifactId>
-			<version>${spring.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-core</artifactId>
-			<version>${spring.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-context</artifactId>
-			<version>${spring.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-jms</artifactId>
-			<version>${spring.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.xbean</groupId>
-			<artifactId>xbean-spring</artifactId>
-			<version>3.7</version>
-		</dependency>
-		<dependency>
-			<groupId>com.github.ptgoetz</groupId>
-			<artifactId>storm-jms</artifactId>
-			<version>0.8.2-SNAPSHOT</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>log4j-over-slf4j</artifactId>
-                </exclusion>
-                <exclusion>
-                	<groupId>org.slf4j</groupId>
-                	<artifactId>slf4j-log4j12</artifactId>
-                </exclusion>                
-            </exclusions>			
-		</dependency>
-		<dependency>
-			<groupId>org.apache.activemq</groupId>
-			<artifactId>activemq-core</artifactId>
-			<version>5.7.0</version>
-		</dependency>
-		
+		  <groupId>poc.hortonworks.domain</groupId>
+		  <artifactId>transport-domain</artifactId>
+		  <version>${truck.topology.domain.version}</version>			
+		</dependency>		
 		 
 		<!-- Storm Dependencies -->
         <dependency>
-            <groupId>storm</groupId>
+            <groupId>org.apache.storm</groupId>
             <artifactId>storm-core</artifactId>
             <version>${storm.version}</version>
             <scope>provided</scope>
@@ -108,46 +64,33 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <dependency>
-            <groupId>storm</groupId>
-            <artifactId>storm-netty</artifactId>
-            <version>${storm.version}</version>
-            <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>log4j-over-slf4j</artifactId>
-                </exclusion>
-                <exclusion>
-                	<groupId>org.slf4j</groupId>
-                	<artifactId>slf4j-log4j12</artifactId>
-                </exclusion>                
-            </exclusions>
-        </dependency>
-    	<dependency>        
-    		<groupId>log4j</groupId>        
-    		<artifactId>log4j</artifactId>        
-    		<version>1.2.17</version>    
-    	</dependency>          
    
         		
-		
-		<!-- Kafka Dependencies -->
+		<!-- Storm Kafka Dependencies -->
 		<dependency>
-			<groupId>storm</groupId>
-			<artifactId>storm-kafka-0.8-plus</artifactId>
-			<version>0.1.0-SNAPSHOT</version>
+			<groupId>org.apache.storm</groupId>
+			<artifactId>storm-kafka</artifactId>
+			<version>${storm.kafka.version}</version>
 		</dependency>
-		<dependency>        
-			<groupId>com.yammer.metrics</groupId>        
-			<artifactId>metrics-core</artifactId>        
-			<version>2.2.0</version>    
-		</dependency>  		
-
+		
+		
 		<dependency>
-			<groupId>storm.contrib</groupId>
-			<artifactId>storm-hbase</artifactId>
-			<version>0.0.2-SNAPSHOT</version>	
+		    <groupId>org.apache.hadoop</groupId>
+		    <artifactId>hadoop-client</artifactId>
+		    <version>${hadoop.version}</version>
+		    <exclusions>
+		        <exclusion>
+		            <groupId>org.slf4j</groupId>
+		            <artifactId>slf4j-log4j12</artifactId>
+		        </exclusion>
+		    </exclusions>
+		</dependency>		
+	
+		<!-- HBase Dependcies -->
+		<dependency>
+			<groupId>org.apache.hbase</groupId>
+			<artifactId>hbase-client</artifactId>
+			<version>${hbase.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -156,28 +99,42 @@
                 <exclusion>
                 	<groupId>org.slf4j</groupId>
                 	<artifactId>slf4j-log4j12</artifactId>
-                </exclusion>       
-                <exclusion>
-		            <groupId>storm</groupId>
-		            <artifactId>storm</artifactId>
-                </exclusion>   
-                <exclusion>
-		            <groupId>storm</groupId>
-		            <artifactId>storm-netty</artifactId>
-                </exclusion>                       
-            </exclusions>					
+                </exclusion>
+            </exclusions>			
 		</dependency>
+
+		
+		<!-- Other -->
 		
 		<dependency>
-		  <groupId>poc.hortonworks.domain</groupId>
-		  <artifactId>transport-domain</artifactId>
-		  <version>1.0.0-SNAPSHOT</version>			
+			<groupId>javax.mail</groupId>
+			<artifactId>mailapi</artifactId>
+			<version>${mail.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>javax.mail</groupId>
+			<artifactId>mail</artifactId>
+			<version>${mail.version}</version>
+		</dependency>
+		
+		<dependency>        
+    		<groupId>log4j</groupId>        
+    		<artifactId>log4j</artifactId>        
+    		<version>${log4j.version}</version>    
+    	</dependency> 		
+    	<dependency>
+			<groupId>org.apache.activemq</groupId>
+			<artifactId>activemq-core</artifactId>
+			<version>${active.mq.version}</version>
+		</dependency>
+		
 		<dependency>
 			<groupId>org.codehaus.jackson</groupId>
 			<artifactId>jackson-mapper-asl</artifactId>
 			<version>1.9.13</version>
-		</dependency>				
+		</dependency>		
+    	
+    	<!-- End of Other -->	
 		
 		<!-- Test -->
 		<dependency>
@@ -191,9 +148,55 @@
 
 	<build>
 
+
+  
 		<plugins>
-			<!-- bind the maven-assembly-plugin to the package phase this will create 
-				a jar file without the storm dependencies suitable for deployment to a cluster. -->
+		
+		
+			<plugin>
+			    <groupId>org.apache.maven.plugins</groupId>
+			    <artifactId>maven-shade-plugin</artifactId>
+			    <version>1.4</version>
+			    <configuration>
+			        <createDependencyReducedPom>true</createDependencyReducedPom>
+			                  <filters>
+					            <filter>
+					              <artifact>*:*</artifact>
+					              <excludes>
+					                <exclude>META-INF/*.SF</exclude>
+					                <exclude>META-INF/*.DSA</exclude>
+					                <exclude>META-INF/*.RSA</exclude>
+					              </excludes>
+					            </filter>
+					          </filters>
+			    </configuration>
+			    <executions>
+			        <execution>
+			            <phase>package</phase>
+			            <goals>
+			                <goal>shade</goal>
+			            </goals>
+			            <configuration>
+			     
+			                <transformers>
+			                    <transformer
+			                            implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+			                    <transformer
+			                            implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+			                        <mainClass></mainClass>
+			                    </transformer>
+			                </transformers>
+
+
+			            </configuration>
+			        </execution>
+			    </executions>
+			</plugin>	
+			
+			
+			
+			<!--  
+			
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<configuration>
@@ -215,80 +218,12 @@
 						</goals>
 					</execution>
 				</executions>
-			</plugin>
+			</plugin>	
+			-->				
 
-			<plugin>
-				<groupId>com.theoryinpractise</groupId>
-				<artifactId>clojure-maven-plugin</artifactId>
-				<version>1.3.8</version>
-				<extensions>true</extensions>
-				<configuration>
-					<sourceDirectories>
-						<sourceDirectory>src/clj</sourceDirectory>
-					</sourceDirectories>
-				</configuration>
-				<executions>
-					<execution>
-						<id>compile</id>
-						<phase>compile</phase>
-						<goals>
-							<goal>compile</goal>
-						</goals>
-					</execution>
-					<execution>
-						<id>test</id>
-						<phase>test</phase>
-						<goals>
-							<goal>test</goal>
-						</goals>
-					</execution>
-				</executions>
-
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<configuration>
-					<source>1.6</source>
-					<target>1.6</target>
-				</configuration>
-			</plugin>
 		</plugins>
-		<pluginManagement>
-			<plugins>
-				<!--This plugin's configuration is used to store Eclipse m2e settings 
-					only. It has no influence on the Maven build itself. -->
-				<plugin>
-					<groupId>org.eclipse.m2e</groupId>
-					<artifactId>lifecycle-mapping</artifactId>
-					<version>1.0.0</version>
-					<configuration>
-						<lifecycleMappingMetadata>
-							<pluginExecutions>
-								<pluginExecution>
-									<pluginExecutionFilter>
-										<groupId>
-											com.theoryinpractise
-										</groupId>
-										<artifactId>
-											clojure-maven-plugin
-										</artifactId>
-										<versionRange>
-											[1.3.8,)
-										</versionRange>
-										<goals>
-											<goal>compile</goal>
-										</goals>
-									</pluginExecutionFilter>
-									<action>
-										<ignore></ignore>
-									</action>
-								</pluginExecution>
-							</pluginExecutions>
-						</lifecycleMappingMetadata>
-					</configuration>
-				</plugin>
-			</plugins>
-		</pluginManagement>
+		
+		
+		
 	</build>
 </project>

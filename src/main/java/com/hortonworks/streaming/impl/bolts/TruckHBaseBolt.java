@@ -108,10 +108,6 @@ public class TruckHBaseBolt implements IRichBolt {
 	 */
 	public static  Configuration constructConfiguration() {
 		Configuration config = HBaseConfiguration.create();
-//		config.set("hbase.zookeeper.quorum",
-//				"gvetticaden-central3.secloud.hortonworks.com");
-//		config.set("hbase.zookeeper.property.clientPort", "2181");
-//		config.set("zookeeper.znode.parent", "/hbase-unsecure");
 		return config;
 	}	
 
