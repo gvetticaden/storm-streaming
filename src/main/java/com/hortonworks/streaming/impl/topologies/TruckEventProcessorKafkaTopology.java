@@ -1,6 +1,16 @@
 package com.hortonworks.streaming.impl.topologies;
 
 import org.apache.log4j.Logger;
+import org.apache.storm.hdfs.bolt.HdfsBolt;
+import org.apache.storm.hdfs.bolt.format.DefaultFileNameFormat;
+import org.apache.storm.hdfs.bolt.format.DelimitedRecordFormat;
+import org.apache.storm.hdfs.bolt.format.FileNameFormat;
+import org.apache.storm.hdfs.bolt.format.RecordFormat;
+import org.apache.storm.hdfs.bolt.rotation.FileRotationPolicy;
+import org.apache.storm.hdfs.bolt.rotation.FileSizeRotationPolicy;
+import org.apache.storm.hdfs.bolt.rotation.FileSizeRotationPolicy.Units;
+import org.apache.storm.hdfs.bolt.sync.CountSyncPolicy;
+import org.apache.storm.hdfs.bolt.sync.SyncPolicy;
 
 import storm.kafka.BrokerHosts;
 import storm.kafka.KafkaSpout;
@@ -30,32 +40,23 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 	private void buildAndSubmit() throws Exception {
 		TopologyBuilder builder = new TopologyBuilder();
 		
-		KafkaSpout kafkaSpout = constructKafkaSpout();
+		/* Set up Kafka Spout to ingest from */
+		configureKafkaSpout(builder);
+
+		/* Set up HDFSBOlt to send every truck event to HDFS */
+		configureHDFSBolt(builder);
 		
-		int spoutCount = Integer.valueOf(topologyConfig.getProperty("spout.thread.count"));
-		int boltCount = Integer.valueOf(topologyConfig.getProperty("bolt.thread.count"));
+		/* Setup Monitoring Bolt to track number of alerts per truck driver */
+		configureMonitoringBolt(builder);
 		
-		builder.setSpout("kafkaSpout", kafkaSpout, spoutCount);
+		/* Setup HBse Bolt for to persist violations and all events (if configured to do so)*/
+		configureHBaseBolt(builder);
 		
-		/*
-		 * Send truckEvents from same driver to the same bolt instances to maintain accuracy of eventCount per truck/driver
-		 */
-		builder.setBolt("monitoring_bolt", 
-						new TruckEventRuleBolt(topologyConfig), boltCount)
-						.fieldsGrouping("kafkaSpout", new Fields("driverId"));
-		
-		TruckHBaseBolt hbaseBolt = new TruckHBaseBolt(topologyConfig);
-		
-		builder.setBolt("hbase_bolt", hbaseBolt, 2 ).shuffleGrouping("kafkaSpout");
-		
-		boolean configureWebSocketBolt = Boolean.valueOf(topologyConfig.getProperty("notification.topic")).booleanValue();
-		if(configureWebSocketBolt) {
-			WebSocketBolt webSocketBolt = new WebSocketBolt(topologyConfig);
-			builder.setBolt("web_sockets_bolt", webSocketBolt, 4).shuffleGrouping("hbase_bolt");
-		}
+		/* Setup WebSocket Bolt for alerts and notifications */
+		configureWebSocketBolt(builder);
 		
 		
-		/** This conf is for Storm and it needs be configured with things like the following:
+		/* This conf is for Storm and it needs be configured with things like the following:
 		 * 	Zookeeper server, nimbus server, ports, etc... All of this configuration will be picked up
 		 * in the ~/.storm/storm.yaml file that will be located on each storm node.
 		 */
@@ -72,6 +73,70 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 			LOG.error("Error submiting Topology", e);
 		}
 			
+	}
+
+	public void configureWebSocketBolt(TopologyBuilder builder) {
+		boolean configureWebSocketBolt = Boolean.valueOf(topologyConfig.getProperty("notification.topic")).booleanValue();
+		if(configureWebSocketBolt) {
+			WebSocketBolt webSocketBolt = new WebSocketBolt(topologyConfig);
+			builder.setBolt("web_sockets_bolt", webSocketBolt, 4).shuffleGrouping("hbase_bolt");
+		}
+	}
+
+	public void configureHBaseBolt(TopologyBuilder builder) {
+		TruckHBaseBolt hbaseBolt = new TruckHBaseBolt(topologyConfig);
+		builder.setBolt("hbase_bolt", hbaseBolt, 2 ).shuffleGrouping("kafkaSpout");
+	}
+
+	/**
+	 * Send truckEvents from same driver to the same bolt instances to maintain accuracy of eventCount per truck/driver 
+	 * @param builder
+	 */
+	public void configureMonitoringBolt(TopologyBuilder builder) {
+		int boltCount = Integer.valueOf(topologyConfig.getProperty("bolt.thread.count"));
+		builder.setBolt("monitoring_bolt", 
+						new TruckEventRuleBolt(topologyConfig), boltCount)
+						.fieldsGrouping("kafkaSpout", new Fields("driverId"));
+	}
+
+	public void configureHDFSBolt(TopologyBuilder builder) {
+		// Use pipe as record boundary
+		RecordFormat format = new DelimitedRecordFormat().withFieldDelimiter(",");
+
+		//Synchronize data buffer with the filesystem every 1000 tuples
+		SyncPolicy syncPolicy = new CountSyncPolicy(1000);
+
+		// Rotate data files when they reach five MB
+		FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(5.0f, Units.MB);
+
+		String path = topologyConfig.getProperty("hdfs.path");
+		String prefix = topologyConfig.getProperty("hdfs.file.prefix");
+		String fsUrl = topologyConfig.getProperty("hdfs.url");
+		
+		FileNameFormat fileNameFormat = new DefaultFileNameFormat()
+				.withPath(path)
+				.withPrefix(prefix);
+
+		// Instantiate the HdfsBolt
+		HdfsBolt hdfsBolt = new HdfsBolt()
+				 .withFsUrl(fsUrl)
+		         .withFileNameFormat(fileNameFormat)
+		         .withRecordFormat(format)
+		         .withRotationPolicy(rotationPolicy)
+		         .withSyncPolicy(syncPolicy);
+		
+		int hdfsBoltCount = Integer.valueOf(topologyConfig.getProperty("hdfsbolt.thread.count"));
+		builder.setBolt("hdfs_bolt", hdfsBolt, hdfsBoltCount).shuffleGrouping("kafkaSpout");
+	}
+
+	public int configureKafkaSpout(TopologyBuilder builder) {
+		KafkaSpout kafkaSpout = constructKafkaSpout();
+		
+		int spoutCount = Integer.valueOf(topologyConfig.getProperty("spout.thread.count"));
+		int boltCount = Integer.valueOf(topologyConfig.getProperty("bolt.thread.count"));
+		
+		builder.setSpout("kafkaSpout", kafkaSpout, spoutCount);
+		return boltCount;
 	}
 
 

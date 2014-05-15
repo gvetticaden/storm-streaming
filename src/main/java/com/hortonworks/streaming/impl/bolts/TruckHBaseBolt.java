@@ -6,10 +6,12 @@ import java.util.Properties;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HConnection;
 import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.log4j.Logger;
 
@@ -29,19 +31,28 @@ public class TruckHBaseBolt implements IRichBolt {
 	private static final long serialVersionUID = 2946379346389650318L;
 	private static final Logger LOG = Logger.getLogger(TruckHBaseBolt.class);
 	
-	private static final  String EVENTS_TABLE_NAME = "driver_dangerous_events";
+	private static final String DANGEROUS_EVENTS_TABLE_NAME = "driver_dangerous_events";
 	private static final String EVENTS_TABLE_COLUMN_FAMILY_NAME = "events";	
 	
-	private static final  String EVENTS_COUNT_TABLE_NAME = "driver_dangerous_events_count";
+	
+	private static final String EVENTS_TABLE_NAME = "driver_events";
+	private static final String ALL_EVENTS_TABLE_COLUMN_FAMILY_NAME = "allevents";	
+	
+	private static final String EVENTS_COUNT_TABLE_NAME = "driver_dangerous_events_count";
 	private static final String EVENTS_COUNT_TABLE_COLUMN_FAMILY_NAME = "counters";	
 
 	
 	private OutputCollector collector;
 	private HConnection connection;
-	private HTableInterface eventsTable;
+	private HTableInterface dangerousEventsTable;
 	private HTableInterface eventsCountTable;
+	private HTableInterface eventsTable;
+	
+	private boolean persistAllEvents;
 
-	public TruckHBaseBolt(Properties kafkaConfig) {
+	public TruckHBaseBolt(Properties topologyConfig) {
+		this.persistAllEvents = Boolean.valueOf(topologyConfig.getProperty("hbase.persist.all.events")).booleanValue();
+		LOG.info("The PersistAllEvents Flag is set to: " + persistAllEvents);
 	}
 
 	@Override
@@ -51,10 +62,12 @@ public class TruckHBaseBolt implements IRichBolt {
 		this.collector = collector;
 		try {
 			this.connection = HConnectionManager.createConnection(constructConfiguration());
+			this.dangerousEventsTable = connection.getTable(DANGEROUS_EVENTS_TABLE_NAME);
+			this.eventsCountTable = connection.getTable(EVENTS_COUNT_TABLE_NAME);	
 			this.eventsTable = connection.getTable(EVENTS_TABLE_NAME);
-			this.eventsCountTable = connection.getTable(EVENTS_COUNT_TABLE_NAME);		    
+			
 		} catch (Exception e) {
-			String errMsg = "Error retrievinging connection and access to eventsTable";
+			String errMsg = "Error retrievinging connection and access to dangerousEventsTable";
 			LOG.error(errMsg, e);
 			throw new RuntimeException(errMsg, e);
 		}		
@@ -72,27 +85,45 @@ public class TruckHBaseBolt implements IRichBolt {
 		double longitude = input.getDoubleByField("longitude");
 		double latitude = input.getDoubleByField("latitude");
 		
+		long incidentTotalCount = getInfractionCountForDriver(driverId);
+		
 		if(!eventType.equals("Normal")) {
 			try {
 				
 				//Store the incident event in HBase
-				Put put = constructRow(driverId, truckId, eventTime, eventType,
+				Put put = constructRow(EVENTS_TABLE_COLUMN_FAMILY_NAME, driverId, truckId, eventTime, eventType,
 						latitude, longitude);
-				this.eventsTable.put(put);
-				LOG.info("Success inserting event into HBase...");
+				this.dangerousEventsTable.put(put);
+				LOG.info("Success inserting event into HBase table["+DANGEROUS_EVENTS_TABLE_NAME+"]");
 				
 				//Update the running count of all incidents
-				long incidentTotalCount = this.eventsCountTable.incrementColumnValue(Bytes.toBytes(driverId), Bytes.toBytes(EVENTS_COUNT_TABLE_COLUMN_FAMILY_NAME), 
+				incidentTotalCount = this.eventsCountTable.incrementColumnValue(Bytes.toBytes(driverId), Bytes.toBytes(EVENTS_COUNT_TABLE_COLUMN_FAMILY_NAME), 
 															INCIDENT_RUNNING_TOTAL_COLUMN, 1L);
-				LOG.info("Success inserting event into counts table....");
-				
-				collector.emit(input, new Values(driverId, truckId, eventTime, eventType, longitude, latitude, incidentTotalCount));
-				
+				LOG.info("Success inserting event into counts table");
+
 			} catch (Exception e) {
-				LOG.error("	Error inserting truck event into HBase", e);
+				LOG.error("	Error inserting violation event into HBase table", e);
 			}				
+		} 
+		
+		/* If persisting all events, then store into the driver_events table */
+		if(persistAllEvents) {
+
+			//Store the  event in HBase
+			try {
+				
+				Put put = constructRow(ALL_EVENTS_TABLE_COLUMN_FAMILY_NAME, driverId, truckId, eventTime, eventType,
+						latitude, longitude);
+				this.eventsTable.put(put);
+				LOG.info("Success inserting event into HBase table["+EVENTS_TABLE_NAME+"]");				
+			} catch (Exception e) {
+				LOG.error("	Error inserting event into HBase table["+EVENTS_TABLE_NAME+"]", e);
+			}
+
 		}
-	
+		
+		collector.emit(input, new Values(driverId, truckId, eventTime, eventType, longitude, latitude, incidentTotalCount));
+		
 		//acknowledge even if there is an error
 		collector.ack(input);
 		
@@ -112,30 +143,30 @@ public class TruckHBaseBolt implements IRichBolt {
 	}	
 
 	
-	private Put constructRow(int driverId, int truckId, Timestamp eventTime, String eventType, double latitude, double longitude ) {
+	private Put constructRow(String columnFamily, int driverId, int truckId, Timestamp eventTime, String eventType, double latitude, double longitude ) {
 		
 		String rowKey = consructKey(driverId, truckId, eventTime);
 		System.out.println("Record with key["+rowKey + "] going to be inserted...");
 		Put put = new Put(Bytes.toBytes(rowKey));
 		
 		String driverColumn = "driverId";
-		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(driverColumn), Bytes.toBytes(driverId));
+		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(driverColumn), Bytes.toBytes(driverId));
 		
 		String truckColumn = "truckId";
-		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(truckColumn), Bytes.toBytes(truckId));
+		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(truckColumn), Bytes.toBytes(truckId));
 		
 		String eventTimeColumn = "eventTime";
 		long eventTimeValue=  eventTime.getTime();
-		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(eventTimeColumn), Bytes.toBytes(eventTimeValue));
+		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(eventTimeColumn), Bytes.toBytes(eventTimeValue));
 		
 		String eventTypeColumn = "eventType";
-		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(eventTypeColumn), Bytes.toBytes(eventType));
+		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(eventTypeColumn), Bytes.toBytes(eventType));
 		
 		String latColumn = "latitudeColumn";
-		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(latColumn), Bytes.toBytes(latitude));
+		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(latColumn), Bytes.toBytes(latitude));
 		
 		String longColumn = "longitudeColumn";
-		put.add(Bytes.toBytes(EVENTS_TABLE_COLUMN_FAMILY_NAME), Bytes.toBytes(longColumn), Bytes.toBytes(longitude));
+		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(longColumn), Bytes.toBytes(longitude));
 
 		return put;
 	}
@@ -151,11 +182,12 @@ public class TruckHBaseBolt implements IRichBolt {
 	@Override
 	public void cleanup() {
 		try {
-			eventsTable.close();
+			dangerousEventsTable.close();
 			eventsCountTable.close();
+			eventsTable.close();
 			connection.close();
 		} catch (Exception  e) {
-			LOG.error("Error closing eventsTable or connection", e);
+			LOG.error("Error closing connections", e);
 		}
 	}
 
@@ -168,4 +200,25 @@ public class TruckHBaseBolt implements IRichBolt {
 	public Map<String, Object> getComponentConfiguration() {
 		return null;
 	}
+	
+	private long getInfractionCountForDriver(int driverId) {
+		try {
+			byte[] driverCount = Bytes.toBytes(driverId);
+			Get get = new Get(driverCount);
+			Result result = eventsCountTable.get(get);
+			long count = 0;
+			if(result != null) {
+				byte[] countBytes = result.getValue(Bytes.toBytes(EVENTS_COUNT_TABLE_COLUMN_FAMILY_NAME), INCIDENT_RUNNING_TOTAL_COLUMN);
+				if(countBytes != null) 
+				{
+					count = Bytes.toLong(countBytes);
+				}
+				
+			}
+			return count;
+		} catch (Exception e) {
+			LOG.error("Error getting infraction count", e);
+			throw new RuntimeException("Error getting infraction count");
+		}
+	}	
 }

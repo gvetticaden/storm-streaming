@@ -26,8 +26,8 @@ public class TruckScheme2 implements Scheme{
 			int truckId = Integer.valueOf(pieces[1]);
 			int driverId = Integer.valueOf(pieces[2]);
 			String eventType = pieces[3];
-			double longitude = Double.valueOf(pieces[4]);
-			double latitude = Double.valueOf(pieces[5]);	
+			double latitude= Double.valueOf(pieces[4]);
+			double longitude  = Double.valueOf(pieces[5]);	
 			long correlationId = Long.valueOf(pieces[6]);
 			String eventKey = consructKey(driverId, truckId, eventTime);
 			

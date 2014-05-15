@@ -43,7 +43,9 @@ public class TruckEventRuleEngine implements Serializable {
 	private String user;
 	private String password;
 	private String activeMQConnectionString;
-	private String topicName;	
+	private String topicName;
+	
+
 	
 
 
@@ -58,12 +60,17 @@ public class TruckEventRuleEngine implements Serializable {
 			LOG.info("TruckEventRuleEngine configured to NOT send alerts");
 		}
 		
+	
+		
 		this.sendAlertToTopic = Boolean.valueOf(config.getProperty("notification.topic")).booleanValue();
+		
 		if(sendAlertToTopic) {
 			this.user = config.getProperty("notification.topic.user");
 			this.password = config.getProperty("notification.topic.password");
 			this.activeMQConnectionString = config.getProperty("notification.topic.connection.url");
 			this.topicName = config.getProperty("notification.topic.alerts.name");	
+			
+			
 		} else {
 			LOG.info("TruckEventRuleEngine configured to alerts to Topic");
 		}

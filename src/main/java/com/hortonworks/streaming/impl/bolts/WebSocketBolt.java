@@ -37,8 +37,11 @@ public class WebSocketBolt implements IRichBolt {
 	private String password;
 	private String activeMQConnectionString;
 	private String topicName;
-
 	
+	
+	private boolean sendAllEventsToTopic;
+	private String allEventsTopicName;	
+
 	
 	public WebSocketBolt(Properties config) {
 		this.config = config;
@@ -51,7 +54,10 @@ public class WebSocketBolt implements IRichBolt {
 		this.user = config.getProperty("notification.topic.user");
 		this.password = config.getProperty("notification.topic.password");
 		this.activeMQConnectionString = config.getProperty("notification.topic.connection.url");
-		this.topicName = config.getProperty("notification.topic.events.name");		
+		this.topicName = config.getProperty("notification.topic.events.name");	
+		
+		this.sendAllEventsToTopic = Boolean.valueOf(config.getProperty("notification.all.events.notification.topic")).booleanValue();
+		this.allEventsTopicName = config.getProperty("notification.all.events.notification.topic.name");
 	}
 
 	@Override
@@ -70,29 +76,51 @@ public class WebSocketBolt implements IRichBolt {
 		double latitude = input.getDoubleByField("latitude");		
 		long numberOfInfractions = input.getLongByField("incidentTotalCount");
 		
-		String truckDriverEventKey = driverId + "|" + truckId;
-		TruckDriverViolationEvent driverInfraction = new TruckDriverViolationEvent(truckDriverEventKey, driverId, truckId, eventTimeLong, timeStampString, longitude, latitude, eventType, numberOfInfractions);
-		ObjectMapper mapper = new ObjectMapper();
-		String event;
-		try {
-			event = mapper.writeValueAsString(driverInfraction);
-		} catch (Exception e) {
-			LOG.error("Error converting TruckDriverViolationEvent to JSON" );
-			return;
-		}
+		String event = constructEvent(driverId, truckId, eventTimeLong,
+				timeStampString, eventType, longitude, latitude,
+				numberOfInfractions);
 		
-		sendDriverInfractionEventToTopic(event);
+		if(!eventType.equals("Normal")) {
+			sendEventToTopic(event, this.topicName);
+		} 
+		if(sendAllEventsToTopic) {
+			sendEventToTopic(event, this.allEventsTopicName);
+		}
+
 		collector.ack(input);
 				
 
 	}
 
-	private void sendDriverInfractionEventToTopic(String event) {
-		Session session = null;
+	public String constructEvent(int driverId, int truckId, long eventTimeLong,
+			String timeStampString, String eventType, double longitude,
+			double latitude, long numberOfInfractions) {
+		
+		String truckDriverEventKey = driverId + "|" + truckId;
+		TruckDriverViolationEvent driverInfraction = new TruckDriverViolationEvent(truckDriverEventKey, driverId, truckId, eventTimeLong, timeStampString, longitude, latitude, eventType, numberOfInfractions);
+		ObjectMapper mapper = new ObjectMapper();
+		String event = null;
 		try {
-			session = createSession();
+			event = mapper.writeValueAsString(driverInfraction);
+		} catch (Exception e) {
+			LOG.error("Error converting TruckDriverViolationEvent to JSON" );
+		}
+		return event;
+	}
+
+	private void sendEventToTopic(String event, String topic) {
+		Session session = null;
+		Connection connection = null;
+		try {
+			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(user, password,activeMQConnectionString);
+			connection = connectionFactory.createConnection();
+			
+			connection.start();
+			session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+		
+			
 			TextMessage message = session.createTextMessage(event);
-			getTopicProducer(session).send(message);
+			getTopicProducer(session, topic).send(message);
 		} catch (JMSException e) {
 			LOG.error("Error sending TruckDriverViolationEvent to topic", e);
 			return;
@@ -103,10 +131,19 @@ public class WebSocketBolt implements IRichBolt {
 				} catch (JMSException e) {
 					LOG.error("Error cleaning up ActiveMQ resources", e);
 				}				
+			} 
+			if(connection != null) {
+				try {
+					connection.close();
+				} catch (JMSException e) {
+					LOG.error("Error closing ActiveMQ connectino", e);
+				}
 			}
 
 		}
 	}
+		
+	
 
 
 	@Override
@@ -121,9 +158,9 @@ public class WebSocketBolt implements IRichBolt {
 		return null;
 	}
 	
-	private MessageProducer getTopicProducer(Session session) {
+	private MessageProducer getTopicProducer(Session session, String topic) {
 		try {
-			Topic topicDestination = session.createTopic(topicName);
+			Topic topicDestination = session.createTopic(topic);
 			MessageProducer topicProducer = session.createProducer(topicDestination);
 			topicProducer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
 			return topicProducer;
@@ -133,19 +170,20 @@ public class WebSocketBolt implements IRichBolt {
 		}
 	}	
 	
-	private Session createSession() {
-		
-		try {
-			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(user, password,activeMQConnectionString);
-			Connection connection = connectionFactory.createConnection();
-			connection.start();
-			Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-			return session;
-		} catch (JMSException e) {
-			LOG.error("Error configuring ActiveMQConnection and getting session", e);
-			throw new RuntimeException("Error configuring ActiveMQConnection");
-		}
-	}
+//	private Session createSession() {
+//		
+//		try {
+//			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(user, password,activeMQConnectionString);
+//			Connection connection = connectionFactory.createConnection();
+//			connection.start();
+//			
+//			Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+//			return session;
+//		} catch (JMSException e) {
+//			LOG.error("Error configuring ActiveMQConnection and getting session", e);
+//			throw new RuntimeException("Error configuring ActiveMQConnection");
+//		}
+//	}
 
 	@Override
 	public void cleanup() {

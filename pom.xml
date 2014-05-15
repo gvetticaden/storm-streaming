@@ -14,6 +14,7 @@
 		<hadoop.version>2.4.0.2.1.1.0-385</hadoop.version>
 		<storm.version>0.9.1.2.1.1.0-385</storm.version>
 		<storm.kafka.version>0.9.1.2.1.1.0-385</storm.kafka.version>
+		<storm.hdfs.version>0.9.1.2.1.2.0-402</storm.hdfs.version>
 		<hbase.version>0.98.0.2.1.1.0-385-hadoop2</hbase.version>
 		<active.mq.version>5.7.0</active.mq.version>
 		<truck.topology.domain.version>1.0.0-SNAPSHOT</truck.topology.domain.version>
@@ -72,6 +73,16 @@
 			<artifactId>storm-kafka</artifactId>
 			<version>${storm.kafka.version}</version>
 		</dependency>
+		
+		
+		<!-- Storm HDFS Dependencies -->
+		<dependency>
+			<groupId>org.apache.storm</groupId>
+			<artifactId>storm-hdfs</artifactId>
+			<version>${storm.hdfs.version}</version>
+		</dependency>
+		
+		<!-- Hadoop Dependencies -->
 		
 		
 		<dependency>
