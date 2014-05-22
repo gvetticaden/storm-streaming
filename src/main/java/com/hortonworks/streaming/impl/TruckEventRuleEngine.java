@@ -77,7 +77,7 @@ public class TruckEventRuleEngine implements Serializable {
 	}
 
 
-	public void processEvent(int driverId, int truckId, Timestamp eventTime, String event, double longitude, double latitude, long currentCorrelationId) {
+	public void processEvent(int driverId, String driverName, int routeId, int truckId, Timestamp eventTime, String event, double longitude, double latitude, long currentCorrelationId, String routeName) {
 
 		if(lastCorrelationId != currentCorrelationId) {
 			lastCorrelationId = currentCorrelationId;
@@ -90,7 +90,7 @@ public class TruckEventRuleEngine implements Serializable {
 		if (!event.equals("Normal")) {
 			if (driverEvents.get(driverId).size() < MAX_UNSAFE_EVENTS) {
 				driverEvents.get(driverId).push(eventTime + " " + event);
-				LOG.info("Driver["+driverId+"] has an unsafe event and now has the following unsfae events " + driverEvents.get(driverId).size());
+				LOG.info("Driver["+driverId+"] " + driverName + " has an unsafe event and now has the following unsfae events " + driverEvents.get(driverId).size());
 			}
 			else {
 				LOG.info("Driver["+driverId+"] has exceed max events...");
@@ -104,10 +104,10 @@ public class TruckEventRuleEngine implements Serializable {
 					}
 					
 					if(sendAlertToEmail)
-						sendAlertEmail(driverId, events);
+						sendAlertEmail(driverName, driverId, events);
 					
 					if(sendAlertToTopic)
-						sendAlertToTopic(driverId, events, truckId, eventTime.getTime());
+						sendAlertToTopic(driverName, driverId, events, truckId, eventTime.getTime(), routeId, routeName);
 				} catch (Exception e) {
 					LOG.error("Error occured while sending notificaiton email: "
 							+ e.getMessage());
@@ -126,16 +126,16 @@ public class TruckEventRuleEngine implements Serializable {
 				+ " subject: " + subject);
 	}
 
-	private void sendAlertToTopic(int driverId, StringBuffer events, int truckId, long timeStamp) {
+	private void sendAlertToTopic(String driverName, int driverId, StringBuffer events, int truckId, long timeStamp, int routeId, String routeName) {
 		String truckDriverEventKey = driverId + "|" + truckId;
 		SimpleDateFormat sdf = new SimpleDateFormat();
 		String timeStampString = sdf.format(timeStamp);
 		
-		String alertMessage = "5 unsafe driving events have been identified for driver["+ driverId + "]: " 
+		String alertMessage = "5 unsafe driving events have been identified for Driver " + driverName + " with Driver Identification Number: " + driverId + " for Route["+routeName + "] " 
 								+ events.toString();
 		
 		DriverAlertNotification alert = new DriverAlertNotification(truckDriverEventKey, driverId, truckId, 
-											timeStamp, timeStampString, alertMessage);
+											timeStamp, timeStampString, alertMessage, driverName, routeId, routeName);
 
 		String jsonAlert;
 		try {
@@ -171,9 +171,9 @@ public class TruckEventRuleEngine implements Serializable {
 		}
 	}	
 
-	private void sendAlertEmail(int driverId, StringBuffer events) {
+	private void sendAlertEmail(String driverName, int driverId, StringBuffer events) {
 		eventMailer.sendEmail(email, email, subject,
-				"We've identified 5 unsafe driving events for driver: "
+				"We've identified 5 unsafe driving events for Driver " + driverName + " with Driver Identification Number: "
 						+ driverId + "\n\n" + events.toString());
 	}
 	

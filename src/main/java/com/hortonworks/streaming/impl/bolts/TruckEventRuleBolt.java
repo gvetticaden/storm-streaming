@@ -38,6 +38,9 @@ public class TruckEventRuleBolt implements IRichBolt {
 	@Override
 	public void execute(Tuple input) {
 		int driverId = input.getIntegerByField("driverId");
+		String driverName = input.getStringByField("driverName");
+		int routeId = input.getIntegerByField("routeId");
+		String routeName = input.getStringByField("routeName");
 		int truckId = input.getIntegerByField("truckId");
 		Timestamp eventTime = (Timestamp) input.getValueByField("eventTime");
 		String eventType = input.getStringByField("eventType");
@@ -46,8 +49,8 @@ public class TruckEventRuleBolt implements IRichBolt {
 		long correlationId = input.getLongByField("correlationId");
 		
 		
-		LOG.info("Processing truck event["+eventType +"]  for driverId["+ driverId +"], truck[" + truckId +"], correlationId["+correlationId + "]");
-		ruleEngine.processEvent(driverId, truckId, eventTime, eventType, longitude, latitude, correlationId);
+		LOG.info("Processing truck event["+eventType +"]  for driverId["+ driverId +"], truck[" + truckId +"], route["+routeName+"], correlationId["+correlationId + "]");
+		ruleEngine.processEvent(driverId, driverName, routeId,truckId, eventTime, eventType, longitude, latitude, correlationId, routeName);
 		collector.ack(input);
 	}
 

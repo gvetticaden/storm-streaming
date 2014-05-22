@@ -75,10 +75,13 @@ public class WebSocketBolt implements IRichBolt {
 		double longitude = input.getDoubleByField("longitude");
 		double latitude = input.getDoubleByField("latitude");		
 		long numberOfInfractions = input.getLongByField("incidentTotalCount");
+		String driverName = input.getStringByField("driverName");
+		int routeId = input.getIntegerByField("routeId");	
+		String routeName = input.getStringByField("routeName");
 		
 		String event = constructEvent(driverId, truckId, eventTimeLong,
 				timeStampString, eventType, longitude, latitude,
-				numberOfInfractions);
+				numberOfInfractions, driverName, routeId, routeName);
 		
 		if(!eventType.equals("Normal")) {
 			sendEventToTopic(event, this.topicName);
@@ -94,10 +97,10 @@ public class WebSocketBolt implements IRichBolt {
 
 	public String constructEvent(int driverId, int truckId, long eventTimeLong,
 			String timeStampString, String eventType, double longitude,
-			double latitude, long numberOfInfractions) {
+			double latitude, long numberOfInfractions, String driverName, int routeId, String routeName) {
 		
 		String truckDriverEventKey = driverId + "|" + truckId;
-		TruckDriverViolationEvent driverInfraction = new TruckDriverViolationEvent(truckDriverEventKey, driverId, truckId, eventTimeLong, timeStampString, longitude, latitude, eventType, numberOfInfractions);
+		TruckDriverViolationEvent driverInfraction = new TruckDriverViolationEvent(truckDriverEventKey, driverId, truckId, eventTimeLong, timeStampString, longitude, latitude, eventType, numberOfInfractions, driverName, routeId, routeName);
 		ObjectMapper mapper = new ObjectMapper();
 		String event = null;
 		try {
@@ -170,20 +173,6 @@ public class WebSocketBolt implements IRichBolt {
 		}
 	}	
 	
-//	private Session createSession() {
-//		
-//		try {
-//			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(user, password,activeMQConnectionString);
-//			Connection connection = connectionFactory.createConnection();
-//			connection.start();
-//			
-//			Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-//			return session;
-//		} catch (JMSException e) {
-//			LOG.error("Error configuring ActiveMQConnection and getting session", e);
-//			throw new RuntimeException("Error configuring ActiveMQConnection");
-//		}
-//	}
 
 	@Override
 	public void cleanup() {

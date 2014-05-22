@@ -84,6 +84,9 @@ public class TruckHBaseBolt implements IRichBolt {
 		String eventType = input.getStringByField("eventType");
 		double longitude = input.getDoubleByField("longitude");
 		double latitude = input.getDoubleByField("latitude");
+		String driverName = input.getStringByField("driverName");
+		int routeId = input.getIntegerByField("routeId");
+		String routeName = input.getStringByField("routeName");
 		
 		long incidentTotalCount = getInfractionCountForDriver(driverId);
 		
@@ -92,7 +95,7 @@ public class TruckHBaseBolt implements IRichBolt {
 				
 				//Store the incident event in HBase
 				Put put = constructRow(EVENTS_TABLE_COLUMN_FAMILY_NAME, driverId, truckId, eventTime, eventType,
-						latitude, longitude);
+						latitude, longitude, driverName, routeId, routeName);
 				this.dangerousEventsTable.put(put);
 				LOG.info("Success inserting event into HBase table["+DANGEROUS_EVENTS_TABLE_NAME+"]");
 				
@@ -113,7 +116,7 @@ public class TruckHBaseBolt implements IRichBolt {
 			try {
 				
 				Put put = constructRow(ALL_EVENTS_TABLE_COLUMN_FAMILY_NAME, driverId, truckId, eventTime, eventType,
-						latitude, longitude);
+						latitude, longitude, driverName, routeId, routeName);
 				this.eventsTable.put(put);
 				LOG.info("Success inserting event into HBase table["+EVENTS_TABLE_NAME+"]");				
 			} catch (Exception e) {
@@ -122,7 +125,7 @@ public class TruckHBaseBolt implements IRichBolt {
 
 		}
 		
-		collector.emit(input, new Values(driverId, truckId, eventTime, eventType, longitude, latitude, incidentTotalCount));
+		collector.emit(input, new Values(driverId, truckId, eventTime, eventType, longitude, latitude, incidentTotalCount, driverName, routeId, routeName));
 		
 		//acknowledge even if there is an error
 		collector.ack(input);
@@ -143,7 +146,7 @@ public class TruckHBaseBolt implements IRichBolt {
 	}	
 
 	
-	private Put constructRow(String columnFamily, int driverId, int truckId, Timestamp eventTime, String eventType, double latitude, double longitude ) {
+	private Put constructRow(String columnFamily, int driverId, int truckId, Timestamp eventTime, String eventType, double latitude, double longitude, String driverName, int routeId, String routeName ) {
 		
 		String rowKey = consructKey(driverId, truckId, eventTime);
 		System.out.println("Record with key["+rowKey + "] going to be inserted...");
@@ -167,7 +170,15 @@ public class TruckHBaseBolt implements IRichBolt {
 		
 		String longColumn = "longitudeColumn";
 		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(longColumn), Bytes.toBytes(longitude));
+		
+		String driverNameColumn = "driverName";
+		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(driverNameColumn), Bytes.toBytes(driverName));
+		
+		String routeIdColumn = "routeId";
+		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(routeIdColumn), Bytes.toBytes(routeId));	
 
+		String routeNameColumn = "routeName";
+		put.add(Bytes.toBytes(columnFamily), Bytes.toBytes(routeNameColumn), Bytes.toBytes(routeName));			
 		return put;
 	}
 
@@ -193,7 +204,7 @@ public class TruckHBaseBolt implements IRichBolt {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		declarer.declare(new Fields("driverId", "truckId", "eventTime", "eventType", "longitude", "latitude", "incidentTotalCount"));
+		declarer.declare(new Fields("driverId", "truckId", "eventTime", "eventType", "longitude", "latitude", "incidentTotalCount", "driverName", "routeId", "routeName"));
 	}
 
 	@Override
