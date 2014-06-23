@@ -1,4 +1,4 @@
-<!--Sun May  4 21:29:08 2014-->
+<!--Tue Jun 17 19:29:07 2014-->
     <configuration>
     
     <property>
@@ -17,13 +17,8 @@
     </property>
     
     <property>
-      <name>hbase.client.scanner.caching</name>
-      <value>100</value>
-    </property>
-    
-    <property>
       <name>hbase.tmp.dir</name>
-      <value>/mnt/hadoop/hbase</value>
+      <value>/mnt/hadoop/yarn/local/usercache/yarn/appcache/application_1402977937071_0001/container_1402977937071_0001_01_000002/work/app/tmp</value>
     </property>
     
     <property>
@@ -37,8 +32,18 @@
     </property>
     
     <property>
+      <name>hbase.stagingdir</name>
+      <value>hdfs://george-cluster01.cloud.hortonworks.com:8020/apps/hbase/staging</value>
+    </property>
+    
+    <property>
       <name>hbase.hregion.max.filesize</name>
       <value>10737418240</value>
+    </property>
+    
+    <property>
+      <name>hbase.regionserver.port</name>
+      <value>0</value>
     </property>
     
     <property>
@@ -52,13 +57,18 @@
     </property>
     
     <property>
+      <name>hbase.master.info.port</name>
+      <value>44326</value>
+    </property>
+    
+    <property>
       <name>hbase.zookeeper.property.clientPort</name>
       <value>2181</value>
     </property>
     
     <property>
       <name>hbase.zookeeper.quorum</name>
-      <value>hadoopsummit-hdp21-master2.secloud.hortonworks.com,hadoopsummit-hdp21-master3.secloud.hortonworks.com,hadoopsummit-hdp21-master1.secloud.hortonworks.com</value>
+      <value>george-cluster01.cloud.hortonworks.com,george-cluster02.cloud.hortonworks.com,george-cluster03.cloud.hortonworks.com</value>
     </property>
     
     <property>
@@ -72,18 +82,23 @@
     </property>
     
     <property>
+      <name>hbase.zookeeper.useMulti</name>
+      <value>true</value>
+    </property>
+    
+    <property>
       <name>hbase.hstore.blockingStoreFiles</name>
       <value>10</value>
     </property>
     
     <property>
-      <name>hbase.regionserver.global.memstore.lowerLimit</name>
-      <value>0.38</value>
+      <name>hbase.hregion.majorcompaction</name>
+      <value>86400000</value>
     </property>
     
     <property>
-      <name>hbase.hregion.majorcompaction</name>
-      <value>86400000</value>
+      <name>hbase.regionserver.global.memstore.lowerLimit</name>
+      <value>0.38</value>
     </property>
     
     <property>
@@ -103,12 +118,12 @@
     
     <property>
       <name>hbase.superuser</name>
-      <value>hbase</value>
+      <value>yarn</value>
     </property>
     
     <property>
       <name>hbase.rootdir</name>
-      <value>hdfs://hadoopsummit-hdp21-master2.secloud.hortonworks.com:8020/apps/hbase/data</value>
+      <value>hdfs://george-cluster01.cloud.hortonworks.com:8020/apps/hbase/data</value>
     </property>
     
     <property>
@@ -127,13 +142,13 @@
     </property>
     
     <property>
-      <name>dfs.domain.socket.path</name>
-      <value>/var/lib/hadoop-hdfs/dn_socket</value>
+      <name>hbase.client.scanner.caching</name>
+      <value>100</value>
     </property>
     
     <property>
-      <name>hbase.zookeeper.useMulti</name>
-      <value>true</value>
+      <name>hbase.regionserver.info.port</name>
+      <value>0</value>
     </property>
     
     <property>

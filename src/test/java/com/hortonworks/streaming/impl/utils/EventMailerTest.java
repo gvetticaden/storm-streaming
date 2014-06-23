@@ -10,7 +10,7 @@ public class EventMailerTest implements Serializable{
 	
 	private static final long serialVersionUID = -6568782918805429303L;
 
-	@Test
+	//@Test
 	public void sendEmailTest() {
 		Properties config = new Properties();
 		config.put("mail.smtp.host", "hadoopsummit-stormapp.secloud.hortonworks.com");
