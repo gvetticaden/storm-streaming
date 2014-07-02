@@ -1,4 +1,4 @@
-<!--Tue Jun 17 19:29:07 2014-->
+<!--Sun Jun 29 15:50:19 2014-->
     <configuration>
     
     <property>
@@ -18,7 +18,7 @@
     
     <property>
       <name>hbase.tmp.dir</name>
-      <value>/mnt/hadoop/yarn/local/usercache/yarn/appcache/application_1402977937071_0001/container_1402977937071_0001_01_000002/work/app/tmp</value>
+      <value>/mnt/hadoop/yarn/local/usercache/yarn/appcache/application_1404069127372_0008/container_1404069127372_0008_01_000002/work/app/tmp</value>
     </property>
     
     <property>
@@ -58,7 +58,7 @@
     
     <property>
       <name>hbase.master.info.port</name>
-      <value>44326</value>
+      <value>41873</value>
     </property>
     
     <property>
@@ -68,7 +68,7 @@
     
     <property>
       <name>hbase.zookeeper.quorum</name>
-      <value>george-cluster01.cloud.hortonworks.com,george-cluster02.cloud.hortonworks.com,george-cluster03.cloud.hortonworks.com</value>
+      <value>george-cluster01.cloud.hortonworks.com,george-cluster03.cloud.hortonworks.com,george-cluster02.cloud.hortonworks.com</value>
     </property>
     
     <property>

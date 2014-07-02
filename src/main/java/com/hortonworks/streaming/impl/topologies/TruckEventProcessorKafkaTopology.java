@@ -11,6 +11,7 @@ import org.apache.storm.hdfs.bolt.rotation.FileSizeRotationPolicy;
 import org.apache.storm.hdfs.bolt.rotation.FileSizeRotationPolicy.Units;
 import org.apache.storm.hdfs.bolt.sync.CountSyncPolicy;
 import org.apache.storm.hdfs.bolt.sync.SyncPolicy;
+import org.apache.storm.hdfs.common.rotation.MoveFileAction;
 
 import storm.kafka.BrokerHosts;
 import storm.kafka.KafkaSpout;
@@ -25,6 +26,8 @@ import backtype.storm.tuple.Fields;
 import com.hortonworks.streaming.impl.bolts.TruckHBaseBolt;
 import com.hortonworks.streaming.impl.bolts.TruckEventRuleBolt;
 import com.hortonworks.streaming.impl.bolts.WebSocketBolt;
+import com.hortonworks.streaming.impl.bolts.hdfs.FileTimeRotationPolicy;
+import com.hortonworks.streaming.impl.bolts.hive.HiveTablePartitionAction;
 import com.hortonworks.streaming.impl.kafka.TruckScheme2;
 
 public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
@@ -101,20 +104,35 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 
 	public void configureHDFSBolt(TopologyBuilder builder) {
 		// Use pipe as record boundary
+		
+		String rootPath = topologyConfig.getProperty("hdfs.path");
+		String prefix = topologyConfig.getProperty("hdfs.file.prefix");
+		String fsUrl = topologyConfig.getProperty("hdfs.url");
+		String sourceMetastoreUrl = topologyConfig.getProperty("hive.metastore.url");
+		String hiveStagingTableName = topologyConfig.getProperty("hive.staging.table.name");
+		String databaseName = topologyConfig.getProperty("hive.database.name");
+		Float rotationTimeInMinutes = Float.valueOf(topologyConfig.getProperty("hdfs.file.rotation.time.minutes"));
+		
 		RecordFormat format = new DelimitedRecordFormat().withFieldDelimiter(",");
 
 		//Synchronize data buffer with the filesystem every 1000 tuples
 		SyncPolicy syncPolicy = new CountSyncPolicy(1000);
 
 		// Rotate data files when they reach five MB
-		FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(5.0f, Units.MB);
+		//FileRotationPolicy rotationPolicy = new FileSizeRotationPolicy(5.0f, Units.MB);
+		
+		//Rotate every X minutes
+		FileTimeRotationPolicy rotationPolicy = new FileTimeRotationPolicy(rotationTimeInMinutes, FileTimeRotationPolicy.Units.MINUTES);
+		
+		//Hive Partition Action
+		HiveTablePartitionAction hivePartitionAction = new HiveTablePartitionAction(sourceMetastoreUrl, hiveStagingTableName, databaseName, fsUrl);
+		
+		//MoveFileAction moveFileAction = new MoveFileAction().toDestination(rootPath + "/working");
 
-		String path = topologyConfig.getProperty("hdfs.path");
-		String prefix = topologyConfig.getProperty("hdfs.file.prefix");
-		String fsUrl = topologyConfig.getProperty("hdfs.url");
+
 		
 		FileNameFormat fileNameFormat = new DefaultFileNameFormat()
-				.withPath(path)
+				.withPath(rootPath + "/staging")
 				.withPrefix(prefix);
 
 		// Instantiate the HdfsBolt
@@ -123,7 +141,8 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 		         .withFileNameFormat(fileNameFormat)
 		         .withRecordFormat(format)
 		         .withRotationPolicy(rotationPolicy)
-		         .withSyncPolicy(syncPolicy);
+		         .withSyncPolicy(syncPolicy)
+		         .addRotationAction(hivePartitionAction);
 		
 		int hdfsBoltCount = Integer.valueOf(topologyConfig.getProperty("hdfsbolt.thread.count"));
 		builder.setBolt("hdfs_bolt", hdfsBolt, hdfsBoltCount).shuffleGrouping("kafkaSpout");
