@@ -12,26 +12,26 @@ public class UtilTest {
 
 	@Test
 	public void date() {
-		long value = 1404096345780l;
-		//long value = new Date().getTime();
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+		//long value = 1404096345780l;
+		long value = new Date().getTime();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 		Date date = new Date(value);
 		System.out.println("date is " + dateFormat.format(date));
 		
-		Calendar calendar = Calendar.getInstance();
-		calendar.setTime(date);
-		int hour =  calendar.get(Calendar.HOUR_OF_DAY);
-		System.out.println("hour is " + hour);
-		
-		System.out.println("************************ in UTC **********************");
-		SimpleDateFormat dateFormat2 = new SimpleDateFormat("yyyy-MM-dd");
-		dateFormat2.setTimeZone(TimeZone.getTimeZone("UTC"));
-		System.out.println("date in UTC is " + dateFormat2.format(date));
-		
-		Calendar calendar2 = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-		calendar2.setTime(date);
-		hour =  calendar2.get(Calendar.HOUR_OF_DAY);
-		System.out.print("hour in UTC is " + hour);
+//		Calendar calendar = Calendar.getInstance();
+//		calendar.setTime(date);
+//		int hour =  calendar.get(Calendar.HOUR_OF_DAY);
+//		System.out.println("hour is " + hour);
+//		
+//		System.out.println("************************ in UTC **********************");
+//		SimpleDateFormat dateFormat2 = new SimpleDateFormat("yyyy-MM-dd");
+//		dateFormat2.setTimeZone(TimeZone.getTimeZone("UTC"));
+//		System.out.println("date in UTC is " + dateFormat2.format(date));
+//		
+//		Calendar calendar2 = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+//		calendar2.setTime(date);
+//		hour =  calendar2.get(Calendar.HOUR_OF_DAY);
+//		System.out.print("hour in UTC is " + hour);
 		
 	}
 	

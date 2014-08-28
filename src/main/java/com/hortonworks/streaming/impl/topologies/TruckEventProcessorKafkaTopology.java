@@ -28,6 +28,7 @@ import com.hortonworks.streaming.impl.bolts.TruckEventRuleBolt;
 import com.hortonworks.streaming.impl.bolts.WebSocketBolt;
 import com.hortonworks.streaming.impl.bolts.hdfs.FileTimeRotationPolicy;
 import com.hortonworks.streaming.impl.bolts.hive.HiveTablePartitionAction;
+import com.hortonworks.streaming.impl.bolts.solr.SolrIndexingBolt;
 import com.hortonworks.streaming.impl.kafka.TruckScheme2;
 
 public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
@@ -48,6 +49,9 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 
 		/* Set up HDFSBOlt to send every truck event to HDFS */
 		configureHDFSBolt(builder);
+		
+		/* configure Solr indexing bolt */
+		configureSolrIndexingBolt(builder);
 		
 		/* Setup Monitoring Bolt to track number of alerts per truck driver */
 		configureMonitoringBolt(builder);
@@ -76,6 +80,20 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 			LOG.error("Error submiting Topology", e);
 		}
 			
+	}
+
+	private void configureSolrIndexingBolt(TopologyBuilder builder) {
+		boolean isIndexingEnabled = Boolean.valueOf(topologyConfig.getProperty("solr.index.enable")).booleanValue();
+		if(isIndexingEnabled) {
+			LOG.info("Solr indexing enabled");
+			int solrBoltCount = Integer.valueOf(topologyConfig.getProperty("solr.bolt.thread.count"));
+			SolrIndexingBolt solrBolt = new SolrIndexingBolt(topologyConfig);
+			builder.setBolt("solr_indexer_bolt", solrBolt, solrBoltCount).shuffleGrouping("kafkaSpout");
+		} else {
+			LOG.info("Solr indexing turned off");
+		}
+			
+		
 	}
 
 	public void configureWebSocketBolt(TopologyBuilder builder) {

@@ -1,9 +1,9 @@
-<!--Sun Jun 29 15:50:19 2014-->
+<!--Sun Aug 24 11:18:08 2014-->
     <configuration>
     
     <property>
-      <name>hbase.regionserver.global.memstore.upperLimit</name>
-      <value>0.4</value>
+      <name>hbase.master.info.bindAddress</name>
+      <value>0.0.0.0</value>
     </property>
     
     <property>
@@ -17,8 +17,8 @@
     </property>
     
     <property>
-      <name>hbase.tmp.dir</name>
-      <value>/mnt/hadoop/yarn/local/usercache/yarn/appcache/application_1404069127372_0008/container_1404069127372_0008_01_000002/work/app/tmp</value>
+      <name>hbase.regionserver.keytab.file</name>
+      <value>/etc/security/keytabs/hbase.service.keytab</value>
     </property>
     
     <property>
@@ -27,13 +27,73 @@
     </property>
     
     <property>
-      <name>hbase.security.authentication</name>
-      <value>simple</value>
+      <name>hbase.zookeeper.property.clientPort</name>
+      <value>2181</value>
     </property>
     
     <property>
-      <name>hbase.stagingdir</name>
-      <value>hdfs://george-cluster01.cloud.hortonworks.com:8020/apps/hbase/staging</value>
+      <name>hbase.regionserver.handler.count</name>
+      <value>60</value>
+    </property>
+    
+    <property>
+      <name>hbase.regionserver.global.memstore.lowerLimit</name>
+      <value>0.38</value>
+    </property>
+    
+    <property>
+      <name>hbase.master.kerberos.principal</name>
+      <value>hbase/_HOST@EXAMPLE.COM</value>
+    </property>
+    
+    <property>
+      <name>hbase.hregion.memstore.block.multiplier</name>
+      <value>2</value>
+    </property>
+    
+    <property>
+      <name>hbase.hregion.memstore.flush.size</name>
+      <value>134217728</value>
+    </property>
+    
+    <property>
+      <name>hbase.superuser</name>
+      <value>hbase</value>
+    </property>
+    
+    <property>
+      <name>hbase.rootdir</name>
+      <value>hdfs://vett-cluster01.cloud.hortonworks.com:8020/apps/hbase/data</value>
+    </property>
+    
+    <property>
+      <name>hbase.regionserver.kerberos.principal</name>
+      <value>hbase/_HOST@EXAMPLE.COM</value>
+    </property>
+    
+    <property>
+      <name>hbase.regionserver.global.memstore.upperLimit</name>
+      <value>0.4</value>
+    </property>
+    
+    <property>
+      <name>zookeeper.session.timeout</name>
+      <value>30000</value>
+    </property>
+    
+    <property>
+      <name>hbase.client.scanner.caching</name>
+      <value>100</value>
+    </property>
+    
+    <property>
+      <name>hbase.tmp.dir</name>
+      <value>/mnt/hadoop/hbase</value>
+    </property>
+    
+    <property>
+      <name>hfile.block.cache.size</name>
+      <value>0.40</value>
     </property>
     
     <property>
@@ -42,13 +102,8 @@
     </property>
     
     <property>
-      <name>hbase.regionserver.port</name>
-      <value>0</value>
-    </property>
-    
-    <property>
-      <name>hfile.block.cache.size</name>
-      <value>0.40</value>
+      <name>hbase.security.authentication</name>
+      <value>simple</value>
     </property>
     
     <property>
@@ -58,22 +113,22 @@
     
     <property>
       <name>hbase.master.info.port</name>
-      <value>41873</value>
+      <value>60010</value>
     </property>
     
     <property>
-      <name>hbase.zookeeper.property.clientPort</name>
-      <value>2181</value>
+      <name>hbase.hregion.majorcompaction</name>
+      <value>86400000</value>
     </property>
     
     <property>
       <name>hbase.zookeeper.quorum</name>
-      <value>george-cluster01.cloud.hortonworks.com,george-cluster03.cloud.hortonworks.com,george-cluster02.cloud.hortonworks.com</value>
+      <value>vett-cluster01.cloud.hortonworks.com,vett-cluster02.cloud.hortonworks.com,vett-cluster03.cloud.hortonworks.com</value>
     </property>
     
     <property>
-      <name>hbase.regionserver.handler.count</name>
-      <value>60</value>
+      <name>hbase.regionserver.info.port</name>
+      <value>60030</value>
     </property>
     
     <property>
@@ -92,13 +147,8 @@
     </property>
     
     <property>
-      <name>hbase.hregion.majorcompaction</name>
-      <value>86400000</value>
-    </property>
-    
-    <property>
-      <name>hbase.regionserver.global.memstore.lowerLimit</name>
-      <value>0.38</value>
+      <name>hbase.master.port</name>
+      <value>60000</value>
     </property>
     
     <property>
@@ -107,23 +157,8 @@
     </property>
     
     <property>
-      <name>hbase.hregion.memstore.block.multiplier</name>
-      <value>2</value>
-    </property>
-    
-    <property>
-      <name>hbase.hregion.memstore.flush.size</name>
-      <value>134217728</value>
-    </property>
-    
-    <property>
-      <name>hbase.superuser</name>
-      <value>yarn</value>
-    </property>
-    
-    <property>
-      <name>hbase.rootdir</name>
-      <value>hdfs://george-cluster01.cloud.hortonworks.com:8020/apps/hbase/data</value>
+      <name>hbase.master.keytab.file</name>
+      <value>/etc/security/keytabs/hbase.service.keytab</value>
     </property>
     
     <property>
@@ -142,18 +177,18 @@
     </property>
     
     <property>
-      <name>hbase.client.scanner.caching</name>
-      <value>100</value>
+      <name>dfs.domain.socket.path</name>
+      <value>/var/lib/hadoop-hdfs/dn_socket</value>
     </property>
     
     <property>
-      <name>hbase.regionserver.info.port</name>
-      <value>0</value>
+      <name>hbase.coprocessor.region.classes</name>
+      <value></value>
     </property>
     
     <property>
-      <name>zookeeper.session.timeout</name>
-      <value>30000</value>
+      <name>hbase.coprocessor.master.classes</name>
+      <value></value>
     </property>
     
   </configuration>

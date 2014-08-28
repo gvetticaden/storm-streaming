@@ -106,6 +106,10 @@
 		            <groupId>org.slf4j</groupId>
 		            <artifactId>slf4j-log4j12</artifactId>
 		        </exclusion>
+		        <exclusion>
+		        	<groupId>commons-httpclient</groupId>
+		        	<artifactId>commons-httpclient</artifactId>
+		        </exclusion>
 		    </exclusions>
 		</dependency>		
 	
@@ -140,10 +144,31 @@
                 	<groupId>org.slf4j</groupId>
                 	<artifactId>slf4j-log4j12</artifactId>
                 </exclusion>
+		        <exclusion>
+		        	<groupId>commons-httpclient</groupId>
+		        	<artifactId>commons-httpclient</artifactId>
+		        </exclusion>                
             </exclusions>				
     	</dependency>		
 		
-		
+		<!-- SOLR dependencies. Next 2 are required -->
+		<dependency>
+			<groupId>org.apache.solr</groupId>
+			<artifactId>solr-solrj</artifactId>
+			<version>4.7.2</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.zookeeper</groupId>
+					<artifactId>zookeeper</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>	
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
+			<version>4.3.1</version>
+		</dependency>		
+			
 		
 		<!-- Other -->
 		
