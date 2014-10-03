@@ -1,29 +1,35 @@
 package com.hortonworks.streaming.impl.bolts;
 
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Map;
+import java.util.Properties;
+
+import javax.jms.Connection;
+import javax.jms.DeliveryMode;
+import javax.jms.JMSException;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+import javax.jms.Topic;
+
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.log4j.Logger;
+import org.codehaus.jackson.map.ObjectMapper;
+
+import poc.hortonworks.domain.transport.TruckDriverViolationEvent;
+
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.IRichBolt;
 import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Tuple;
-import org.apache.activemq.ActiveMQConnectionFactory;
-import org.apache.log4j.Logger;
-import org.codehaus.jackson.map.ObjectMapper;
-import poc.hortonworks.domain.transport.TruckDriverViolationEvent;
 
-import javax.jms.*;
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+public class WebSocketBoltOld implements IRichBolt {
 
-public class WebSocketBolt implements IRichBolt {
 
-	//ActiveMQ messages will expire after 10 seconds
-	private static final long ACTIVEMQ_MESSAGE_TTL = 10000;
 	private static final long serialVersionUID = -5319490672681173657L;
-	private static final Logger LOG = Logger.getLogger(WebSocketBolt.class);
-	
+	private static final Logger LOG = Logger.getLogger(WebSocketBoltOld.class);
 	
 	private OutputCollector collector;
 	private Properties config;
@@ -36,14 +42,9 @@ public class WebSocketBolt implements IRichBolt {
 	private boolean sendAllEventsToTopic;
 	private String allEventsTopicName;	
 
-	private Session session = null;
-	private Connection connection = null;
-	private ActiveMQConnectionFactory connectionFactory = null;
-
-    private HashMap<String, MessageProducer> producers = new HashMap<String, MessageProducer>();
-
-	public WebSocketBolt(Properties config) {
-        this.config = config;
+	
+	public WebSocketBoltOld(Properties config) {
+		this.config = config;
 	}
 
 	@Override
@@ -57,27 +58,13 @@ public class WebSocketBolt implements IRichBolt {
 		
 		this.sendAllEventsToTopic = Boolean.valueOf(config.getProperty("notification.all.events.notification.topic")).booleanValue();
 		this.allEventsTopicName = config.getProperty("notification.all.events.notification.topic.name");
-		
-		try{
-			connectionFactory = new ActiveMQConnectionFactory(user, password,activeMQConnectionString);
-			connection = connectionFactory.createConnection();
-			connection.start();
-			session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-
-            producers.put(this.topicName, getTopicProducer(session, this.topicName));
-            producers.put(this.allEventsTopicName, getTopicProducer(session, this.allEventsTopicName));
-
-		}
-		catch (JMSException e) {
-			LOG.error("Error sending TruckDriverViolationEvent to topic", e);
-			return;
-		}
 	}
 
 	@Override
 	public void execute(Tuple input) {
 		LOG.info("About to process tuple["+input+"]");
 
+		
 		int driverId = input.getIntegerByField("driverId");
 		int truckId = input.getIntegerByField("truckId");
 		Timestamp eventTime = (Timestamp) input.getValueByField("eventTime");
@@ -125,14 +112,37 @@ public class WebSocketBolt implements IRichBolt {
 	}
 
 	private void sendEventToTopic(String event, String topic) {
+		Session session = null;
+		Connection connection = null;
 		try {
-            TextMessage message = session.createTextMessage(event);
-			//getTopicProducer(sessio   n, topic).send(message);
-			MessageProducer producer = producers.get(topic);
-			producer.send(message, producer.getDeliveryMode(), producer.getPriority(), ACTIVEMQ_MESSAGE_TTL);
+			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(user, password,activeMQConnectionString);
+			connection = connectionFactory.createConnection();
+			
+			connection.start();
+			session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+		
+			
+			TextMessage message = session.createTextMessage(event);
+			getTopicProducer(session, topic).send(message);
 		} catch (JMSException e) {
 			LOG.error("Error sending TruckDriverViolationEvent to topic", e);
 			return;
+		}finally{
+			if(session != null) {
+				try {
+					session.close();
+				} catch (JMSException e) {
+					LOG.error("Error cleaning up ActiveMQ resources", e);
+				}				
+			} 
+			if(connection != null) {
+				try {
+					connection.close();
+				} catch (JMSException e) {
+					LOG.error("Error closing ActiveMQ connectino", e);
+				}
+			}
+
 		}
 	}
 		
@@ -150,8 +160,7 @@ public class WebSocketBolt implements IRichBolt {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
-
+	
 	private MessageProducer getTopicProducer(Session session, String topic) {
 		try {
 			Topic topicDestination = session.createTopic(topic);
@@ -162,12 +171,13 @@ public class WebSocketBolt implements IRichBolt {
 			LOG.error("Error creating producer for topic", e);
 			throw new RuntimeException("Error creating producer for topic");
 		}
-	}
+	}	
 	
 
 	@Override
 	public void cleanup() {
-		//Todo
+		// TODO Auto-generated method stub
+		
 	}		
 
 }

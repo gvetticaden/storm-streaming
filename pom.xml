@@ -129,7 +129,17 @@
                 </exclusion>
             </exclusions>			
 		</dependency>
-
+		
+		
+		<!-- Phoenix Dependencies -->
+		
+		<dependency>
+			<groupId>org.apache.phoenix</groupId>
+			<artifactId>phoenix-client</artifactId>
+			<version>4.0.0.2.1.4.0-632</version>
+		</dependency>
+ 
+ 
 		<!-- Hive dependencies -->
 		<dependency>
 			<groupId>org.apache.hive</groupId>
@@ -232,6 +242,7 @@
 					                <exclude>META-INF/*.SF</exclude>
 					                <exclude>META-INF/*.DSA</exclude>
 					                <exclude>META-INF/*.RSA</exclude>
+					                <exclude>org/slf4j/**</exclude>
 					              </excludes>
 					            </filter>
 					          </filters>

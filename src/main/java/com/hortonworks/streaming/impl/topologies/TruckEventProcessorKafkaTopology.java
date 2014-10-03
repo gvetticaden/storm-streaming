@@ -25,6 +25,7 @@ import backtype.storm.tuple.Fields;
 
 import com.hortonworks.streaming.impl.bolts.TruckHBaseBolt;
 import com.hortonworks.streaming.impl.bolts.TruckEventRuleBolt;
+import com.hortonworks.streaming.impl.bolts.TruckPhoenixHBaseBolt;
 import com.hortonworks.streaming.impl.bolts.WebSocketBolt;
 import com.hortonworks.streaming.impl.bolts.hdfs.FileTimeRotationPolicy;
 import com.hortonworks.streaming.impl.bolts.hive.HiveTablePartitionAction;
@@ -57,7 +58,8 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 		configureMonitoringBolt(builder);
 		
 		/* Setup HBse Bolt for to persist violations and all events (if configured to do so)*/
-		configureHBaseBolt(builder);
+		//configureHBaseBolt(builder);
+		configurePhoenixHBaseBolt(builder);
 		
 		/* Setup WebSocket Bolt for alerts and notifications */
 		configureWebSocketBolt(builder);
@@ -100,14 +102,19 @@ public class TruckEventProcessorKafkaTopology extends BaseTruckEventTopology {
 		boolean configureWebSocketBolt = Boolean.valueOf(topologyConfig.getProperty("notification.topic")).booleanValue();
 		if(configureWebSocketBolt) {
 			WebSocketBolt webSocketBolt = new WebSocketBolt(topologyConfig);
-			builder.setBolt("web_sockets_bolt", webSocketBolt, 4).shuffleGrouping("hbase_bolt");
+			builder.setBolt("web_sockets_bolt", webSocketBolt, 4).shuffleGrouping("phoenix_hbase_bolt");
 		}
 	}
 
-	public void configureHBaseBolt(TopologyBuilder builder) {
-		TruckHBaseBolt hbaseBolt = new TruckHBaseBolt(topologyConfig);
-		builder.setBolt("hbase_bolt", hbaseBolt, 2 ).shuffleGrouping("kafkaSpout");
-	}
+//	public void configureHBaseBolt(TopologyBuilder builder) {
+//		TruckHBaseBolt hbaseBolt = new TruckHBaseBolt(topologyConfig);
+//		builder.setBolt("hbase_bolt", hbaseBolt, 2 ).shuffleGrouping("kafkaSpout");
+//	}
+	
+	public void configurePhoenixHBaseBolt(TopologyBuilder builder) {
+		TruckPhoenixHBaseBolt hbaseBolt = new TruckPhoenixHBaseBolt(topologyConfig);
+		builder.setBolt("phoenix_hbase_bolt", hbaseBolt, 2 ).shuffleGrouping("kafkaSpout");
+	}	
 
 	/**
 	 * Send truckEvents from same driver to the same bolt instances to maintain accuracy of eventCount per truck/driver 
